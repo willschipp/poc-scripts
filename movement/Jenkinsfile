@@ -1,0 +1,79 @@
+pipeline {
+
+    agent any
+
+    stages {
+        stage('Get Deployments') {
+            steps {
+                script {
+                    //get a parameter
+                    DEPLOYMENTS = sh(
+                        script: 'kubectl get deployments -o=name --kubeconfig=config | grep sdr',
+                        returnStdout: true
+                    )
+                    //the results should be an array
+                    deploymentList = DEPLOYMENTS.split("\n")
+                }
+            }
+        }
+        stage('Process Deployment') {
+            steps {
+                script {
+                    //loop the list and export - push
+                    for (i = 0; i< deploymentList.size();i++) {
+                        deploymentName = deploymentList[i].split("/")[1]
+                        echo deploymentName
+                        sh(
+                            script: 'kubectl get deployment ' + deploymentName + ' -o yaml --kubeconfig=config > deployment.yaml',
+                            returnStdout: true
+                        )
+                        
+                        sh "chmod +x -R ${env.WORKSPACE}"
+
+                        sh(
+                            script: './deployment_strip.sh',
+                            returnStdout: true
+                        )
+                        //have the file, now apply it to the new cluster...
+                    } //end for
+                } //end script
+            } //end steps
+        } //end stage
+        stage('Get Services') {
+            steps {
+                script {
+                    //get a parameter
+                    DEPLOYMENTS = sh(
+                        script: 'kubectl get deployments -o=name --kubeconfig=config | grep sdr',
+                        returnStdout: true
+                    )
+                    //the results should be an array
+                    deploymentList = DEPLOYMENTS.split("\n")
+                }
+            }
+        }
+        stage('Process Services') {
+            steps {
+                script {
+                    //loop the list and export - push
+                    for (i = 0; i< deploymentList.size();i++) {
+                        deploymentName = deploymentList[i].split("/")[1]
+                        echo deploymentName
+                        sh(
+                            script: 'kubectl get service ' + deploymentName + ' -o yaml --kubeconfig=config > service.yaml',
+                            returnStdout: true
+                        )
+                        
+                        sh "chmod +x -R ${env.WORKSPACE}"
+
+                        sh(
+                            script: './deployment_strip.sh',
+                            returnStdout: true
+                        )
+                        //have the file, now apply it to the new cluster...
+                    } //end for
+                } //end script
+            } //end steps
+        } //end stage
+    }
+}

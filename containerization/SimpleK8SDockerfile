@@ -1,0 +1,11 @@
+FROM openjdk:11.0.15-jdk
+
+ARG JAR_FILE=build/lib/*.jar
+
+COPY ${JAR_FILE} app.jar
+
+RUN jar xf app.jar
+
+COPY spring-cloud-starter-kubernetes-discoveryclient-2.1.5.jar BOOT-INF/lib/.
+
+ENTRYPOINT ["java","-Dspring.profiles.active=server,kubernetes","-cp",".","org.springframework.boot.loader.JarLauncher"]

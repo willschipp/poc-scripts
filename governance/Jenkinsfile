@@ -1,0 +1,72 @@
+pipeline {
+    
+    agent any
+
+    stages {
+        stage('Check Event Type') {
+            steps {
+                script {
+                    if (env.everything_pullrequest == 'null') {
+                        //stop
+                        continuation = false
+                        echo 'not a merge'
+                        echo env.everything
+                    } else {
+                        continuation = true
+                    } //end if
+                } //end script
+            } //end steps
+        }
+        stage('Check Branch') {
+            when {
+                expression {
+                    continuation == true
+                }
+            } 
+            steps {
+                script {
+                    if (env.everything_pullrequest_toRef_branch_name != 'master') {
+                        continuation = false
+                        echo 'not a master'
+                    } //end if  
+                }
+            }
+        }
+        stage('Check Deployment Exists') {
+            when {
+                expression {
+                    continuation == true
+                }
+            } 
+            steps {
+                script {
+                    RESULT = sh(
+                            script: "curl 'http://bitbucketuser:welcome1@192.168.126.135:7990/rest/api/1.0/projects/KSAP/repos/simple-app/browse' | jq -c --arg filename 'deployment.yaml' '.children.values[] | select(.path.name == \$filename)'",
+                            returnStdout: true
+                        )
+                    if (RESULT == '') {
+                        //stop
+                        error("Deployment YAML not present")
+                    } else {
+                        continuation = true
+                    }  //end if                       
+                }
+            }
+        }
+        stage('Validate') {
+             when {
+                expression {
+                    continuation == true
+                }
+            } 
+            steps {
+                script {
+                    //get the commit hash
+                    SCORE = sh "curl 'http://bitbucketuser:welcome1@192.168.126.135:7990/rest/api/1.0/projects/KSAP/repos/simple-app/raw/deployment.yaml?at=${env.everything_pullrequest_fromRef_commit_hash}' | kube-score score -o ci -"
+
+                    echo SCORE
+                }
+            }            
+        }
+    }
+}
