@@ -1,0 +1,255 @@
+{
+    "apiVersion":"v1",
+    "kind": "Template",
+    "metadata": {
+        "name":"${APP_NAME}-template"
+    },
+    "objects": [
+        {
+            "apiVersion":"v1",
+            "kind":"Deployment",
+            "metadata": {
+                "labels": {
+                    "app":"${APP_NAME}"
+                },
+                "name": "${APP_NAME}"
+            },
+            "spec": {
+                "replicas":"${{MIN_REPLICAS}}",
+                "selector": {
+                    "matchLabels": {
+                        "app":"${APP_NAME}",
+                        "app_country":"${SPLUNK_COUNTRY_CODE}",
+                        "app_region":"${SPLUNK_REGION}",
+                        "app_workload":"${SPLUNK_WORKLOAD}"
+                    }
+                },
+                "strategy": {
+                    "rollingUpdate": {
+                        "maxSurge":"25%",
+                        "maxUnavailable":"25%"
+                    },
+                    "type":"RollingUpdate"
+                },
+                "template": {
+                    "metadata": {
+                        "annotations": {
+                            "secretsnicknames":"${SECRET}",
+                            "certificatesnickname":"${CERT_NICKANME"
+                        },
+                        "labels": {
+                            "app": "${APP_NAME}",
+                            "app_country": "${SPLUNK_COUNTRY_CODE}",
+                            "app_region": "${SPLUNK_REGION}",
+                            "app_workload":"${SPLUNK_WORKLOAD}"
+                        },
+                        "name":"${APP_NAME}"
+                    },
+                    "spec": {
+                        "containers": [
+                            {
+                                "image":"${IMAGE}",
+                                "imagePullPolicy":"IfNotPresent",
+                                "name":"${APP_NAME}",
+                                "ports": [
+                                    {
+                                        "containerPort":8443,
+                                        "protocol": "TCP"
+                                    }
+                                ],
+                                "livenessProbe": {
+                                    "httpGet": {
+                                        "path": "/health/liveness",
+                                        "scheme":"HTTP",
+                                        "port": 8080
+                                    },
+                                    "initialDelaySeconds":10,
+                                    "periodSeconds":15,
+                                    "timeoutSeconds":2,
+                                    "successThreshold":1,
+                                    "failureThreshold":3
+                                },
+                                "readinessProbe": {
+                                    "httpGet": {
+                                        "path": "/health/readiness",
+                                        "scheme":"HTTP",
+                                        "port": 8080
+                                    },
+                                    "initialDelaySeconds":10,
+                                    "periodSeconds":15,
+                                    "timeoutSeconds":2,
+                                    "successThreshold":2,
+                                    "failureThreshold":3
+                                },
+                                "startupProbe": {
+                                    "httpGet": {
+                                        "path": "/health/liveness",
+                                        "scheme":"HTTP",
+                                        "port": 8080
+                                    },
+                                    "periodSeconds":15,
+                                    "failureThreshold":30
+                                },
+                                "resources": {
+                                    "requests": {
+                                        "cpu": "500m",
+                                        "memory": "2Gi"
+                                    },
+                                    "limits": {
+                                        "cpu":"500m",
+                                        "memory":"3Gi"
+                                    }
+                                },
+                                "env": [
+                                    {
+                                        "name":"spring.profiles.active",
+                                        "value": "${SPRING_PROFILES_ACTIVE"
+                                    },
+                                    {
+                                        "name":"spring.config.use-legacy-processing",
+                                        "value":"true"
+                                    },
+                                    {
+                                        "name":"spring.config.additional-location",
+                                        "value":"/config/app/,/config/common/app/,/home/appuser/apps/"
+                                    },
+                                    {
+                                        "name":"CERT",
+                                        "value":"${CERT_NICKNAME}"
+                                    },
+                                    {
+                                        "name":"ENVIRONMENT",
+                                        "value":"${ENV}"
+                                    },
+                                    {
+                                        "name":"HOME",
+                                        "value":"${HOME}"
+                                    },
+                                    {
+                                        "name":"APP_MTLS_MODE",
+                                        "value":"${APP_MTLS_MODE}"
+                                    },
+                                    {
+                                        "name":"management.server.port",
+                                        "value":"8080"
+                                    },
+                                    {
+                                        "name":"management.server.ssl.enabled",
+                                        "value":"false"
+                                    },
+                                    {
+                                        "name":"management.endpoints.web.base-path",
+                                        "value":"/"
+                                    },
+                                    {
+                                        "name":"maangement.endpoints.web.exposure.include",
+                                        "value":"*"
+                                    },
+                                    {
+                                        "name":"server.port",
+                                        "value":"8443"
+                                    }
+                                ],
+                                "volumeMounts": [
+                                    {
+                                        "mountPath":"/config/app",
+                                        "name": "app-config-volume"
+                                    }
+                                ]
+                            }
+                        ],
+                        "dnsPolicy":"ClusterFirst",
+                        "restartPolicy":"Always",
+                        "schedulerName":"default-scheduler",
+                        "securityContext": {
+
+                        },
+                        "terminationGracePeriodSeconds":30,
+                        "volumes": [
+                            {
+                                "name":"app-config-volume",
+                                "configMap": {
+                                    "name": "${APP_NAME}-config",
+                                    "optional":true
+                                }
+                            }
+                        ]
+                    }
+                },
+                "test":false,
+                "triggers": [
+                    {
+                        "type":"ConfigChange"
+                    }
+                ]
+            }
+        },
+        {
+            "apiVersion":"v1",
+            "kind":"Service",
+            "metadata": {
+                "labels": {
+                    "app": "${APP_NAME}"
+                },
+                "name": "${APP_NAME}"
+            },
+            "spec": {
+                "ports": [
+                    {
+                        "name":"8443-tcp",
+                        "port": 8443,
+                        "protocol":"TCP",
+                        "targetPort":8443
+                    },
+                    {
+                        "name":"8080-tcp",
+                        "port":8080,
+                        "protocol":"TCP",
+                        "targetPort":8080
+                    }
+                ],
+                "selector": {
+                    "app": "${APP_NAME}"
+                },
+                "type":"ClusterIP"
+            }
+        }
+    ],
+    "parameters": [
+        {
+            "name":"IMAGE",
+            "required":false,
+            "description":"Docker image name, injected in pipeline execution"
+        },
+        {
+            "name":"APP_NAME",
+            "required":true,
+            "description":"Application name"
+        },
+        {
+            "name":"ENV",
+            "required":true,
+            "description":"Environment"
+        },
+        {
+            "name":"PROJECT",
+            "required":false,
+            "description":"Openshift Container Platform Project"
+        },
+        {
+            "name":"ROUTER_HOST",
+            "required":true,
+            "description":"Application router host"
+        },
+        {
+            "name":"SECRET",
+            "required":false,
+            "description":"the secret information"
+        },
+        {
+            "name":"CERT_NICKNAME",
+            "description":"the nickname",
+            "required":true
+        }
+    ]
+}
