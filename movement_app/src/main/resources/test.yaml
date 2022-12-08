@@ -1,0 +1,20 @@
+deployment:
+  yaml: blah
+status: something
+metadata:
+  generation: 1
+  resourceVersion: 1
+  selfLink: blahblah
+  creationTimestamp: 11
+  donottouchkey: blah
+  annotations:
+    deployment.kubernetes.io/revision: 1
+    longname.anotherannotation: stuff
+spec:
+  template:
+    version: 1
+    metadata:
+      creationTimestamp: 1111
+      annotations:
+        kubectl.kubernetes.io/restartedAt: something
+        longname.therannotation/revision: survive
