@@ -65,7 +65,6 @@ public class Application implements CommandLineRunner {
         }
         
         public Map<String,Object> parse(String location) throws Exception {
-            Map<String,Object> map = null;
             //load up the file
             InputStream inputStream = this.getClass().getResourceAsStream(location);
             File tempFile = File.createTempFile("parse", "yaml");
