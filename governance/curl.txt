@@ -1,0 +1,8 @@
+curl --request POST \
+  --url 'http://192.168.1.105:7990/rest/api/latest/projects/DEP/repos/sample-app-deployment/labels' \
+  --header 'Accept: application/json' \
+  --header 'Content-Type: application/json' \
+  -u 'admin:P@ssw0rd!'
+  --data '{
+  "name": "labelName"
+}'
