@@ -1,0 +1,95 @@
+pipeline {
+    
+    agent any
+    
+    stages {
+        stage('Check Event Type') {
+            steps {
+                script {
+                    if (env.everything_pullrequest == 'null') {
+                        //stop
+                        continuation = false
+                        echo 'not a merge'
+                        echo env.everything
+                    } else {
+                        continuation = true
+                    } //end if
+                } //end script
+            } //end steps
+        }
+        /*
+        stage('Check Branch') {
+            when {
+                expression {
+                    continuation == true
+                }
+            }
+            steps {
+                script {
+                    if (env.everything_pullrequest_toRef_branch_name != 'master') {
+                        continuation = false
+                        echo 'not a master'
+                    } //end if
+                }
+            }
+        }
+        */
+stage('Check Deployment Exists') {
+            when {
+                expression {
+                    continuation == true
+                }
+            }
+            steps {
+                script {
+                    RESULT = sh(
+                            script: "curl 'http://jenkins.dell.local:7990/rest/api/1.0/projects/DEP/repos/sample-app-deployment/browse' -u 'admin:P@ssw0rd!'| jq -c --arg filename 'deployment.yaml' '.children.values[] | select(.path.name == \$filename)'",
+                            returnStdout: true
+                        )
+                    if (RESULT == '') {
+                        //stop
+                        error("Deployment YAML not present")
+                    } else {
+                        continuation = true
+                    }  //end if
+                }
+            }
+        }
+        stage('Validate') {
+             when {
+                expression {
+                    continuation == true
+                }
+            }
+            steps {
+                script {
+                    //get the commit hash
+                    //fafd9712766403132d32f0732595b820fe413e51
+                    // SCORE = sh "curl 'http://jenkins.dell.local:7990/rest/api/1.0/projects/DEP/repos/sample-app-deployment/raw/deployment.yaml?at=${env.everything_pullrequest_fromRef_commit_hash}' -u 'admin:P@ssw0rd!' | kube-score score -o ci -"
+                    try {
+                        SCORE = sh "curl 'http://jenkins.dell.local:7990/rest/api/1.0/projects/DEP/repos/sample-app-deployment/raw/deployment.json?at=426ffb82fa949e67876d04847af7851312f7180b' -u 'admin:P@ssw0rd!' | kube-score score -o ci -"
+    
+                        echo SCORE
+                        
+                        //REMOVE failed label
+                        sh "curl -XDELETE 'http://jenkins.dell.local:7990/rest/api/1.0/projects/DEP/repos/sample-app-deployment/labels/failed' -u 'admin:P@ssw0rd!'"
+                        //POST good label
+                        sh "curl -XPOST 'http://jenkins.dell.local:7990/rest/api/1.0/projects/DEP/repos/sample-app-deployment/labels' -u 'admin:P@ssw0rd!' --header 'Content-type: application/json' -d '{\"name\":\"passed\"}'"
+                    }
+                    catch (Exception e) {
+
+                        //REMOVE PASSED label
+                        sh "curl -XDELETE 'http://jenkins.dell.local:7990/rest/api/1.0/projects/DEP/repos/sample-app-deployment/labels/passed' -u 'admin:P@ssw0rd!'"
+                        //POST FAILED label
+                        sh "curl -XPOST 'http://jenkins.dell.local:7990/rest/api/1.0/projects/DEP/repos/sample-app-deployment/labels' -u 'admin:P@ssw0rd!' --header 'Content-type: application/json' -d '{\"name\":\"failed\"}'"
+                        
+                        error 'Validation failed'
+                    }
+                }
+            }
+        }
+
+        
+        
+    }
+}
